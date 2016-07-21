@@ -8,11 +8,13 @@ import java.util.Comparator;
 import pw.hellojava.middlware.race.util.BTree;
 
 public class Index {
+	
+	private String indexName;
 	/**
 	 * b树索引
 	 */
 	private BTree index;
-	
+
 	/**
 	 * 指明是否是唯一索引
 	 */
@@ -25,8 +27,10 @@ public class Index {
 	 * @param colomns
 	 * @param comparator
 	 */	
-	public Index(String indexName, File indexDir,  Comparator comparator){
+	public Index(String indexName, boolean isUnique, File indexDir,  Comparator comparator){
 		try {
+			this.isUnique = isUnique;
+			this.indexName = indexName;
 			this.index = new BTree(indexName,indexDir,comparator);
 		} catch (ClassNotFoundException e) {
 			// TODO Auto-generated catch block
@@ -40,7 +44,7 @@ public class Index {
 	/**
 	 * key 代表要查找列的值
 	 * @param key
-	 * @return
+	 * @return 符合条件的地址列表
 	 */
 	public ArrayList<Integer> get(Object key){
 		//TODO 
@@ -82,5 +86,21 @@ public class Index {
 			e.printStackTrace();
 			return false;
 		} 
+	}
+	
+	public BTree getIndex() {
+		return index;
+	}
+	
+	public void saveIndex(File indexDirectory){
+		try {
+			this.index.saveAll(indexDirectory);
+		} catch (ClassNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 }
