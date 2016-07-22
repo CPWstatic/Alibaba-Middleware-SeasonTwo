@@ -1,5 +1,10 @@
 package pw.hellojava.middleware.race.engine;
 
+/**
+ * 
+ * @author root
+ *
+ */
 public class Colomn {
 	private String colomnName;
 	

@@ -3,26 +3,18 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">  
   <modelVersion>4.0.0</modelVersion>  
   <groupId>com.alibaba.middleware.race</groupId>  
-  <artifactId>order-system</artifactId>  
+  <artifactId>order-system-impl</artifactId>  
   <version>1.0</version>  
-  <name>order-system</name>  
-  
-  <dependencies>
-         <dependency>
-        <groupId>org.slf4j</groupId>
-        <artifactId>jcl-over-slf4j</artifactId>
-        <version>1.6.1</version>
-		</dependency>
-  </dependencies>
-  
+  <name>order-system-impl</name>  
+  <description></description>  
   <build> 
     <plugins> 
       <plugin> 
         <groupId>org.apache.maven.plugins</groupId>  
         <artifactId>maven-compiler-plugin</artifactId>  
         <configuration> 
-          <source>1.6</source>  
-          <target>1.6</target> 
+          <source>1.7</source>  
+          <target>1.7</target> 
         </configuration> 
       </plugin>  
       <plugin> 
@@ -49,5 +41,13 @@
         </executions> 
       </plugin> 
     </plugins> 
-  </build> 
+  </build>  
+  <dependencies> 
+
+    <dependency>
+    	<groupId>org.slf4j</groupId>
+    	<artifactId>slf4j-api</artifactId>
+    	<version>1.7.13</version>
+    </dependency>
+  </dependencies> 
 </project>

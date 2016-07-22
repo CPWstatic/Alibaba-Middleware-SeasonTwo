@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory;
 /**
  * 
  * 
- * @author 2016-07-18
+ * @author root
  *
  */
 public class BTree {
@@ -38,7 +38,7 @@ public class BTree {
 	 * values 地址
 	 */
 	private ArrayList<Object> keys;
-	private ArrayList<Integer> values;
+	private ArrayList<Long> values;
 	
 	/**
 	 * childNodeIds 为子女们编号，作为指针，通过编号查找子女
@@ -99,7 +99,7 @@ public class BTree {
 		this.maxCapacity = 2 * degree - 1;
 		//keys至多2 * degree - 1
 		this.keys = new ArrayList<Object>(maxCapacity);
-		this.values = new ArrayList<Integer>(maxCapacity);
+		this.values = new ArrayList<Long>(maxCapacity);
 		//根和分支节点包含maxCapacity + 1个子女，叶子节点没有子女
 		this.childNodeIds = new ArrayList<Integer>(maxCapacity + 1);
 		//用hashmap存储加载的子女
@@ -154,7 +154,7 @@ public class BTree {
      * @throws IOException
      * @throws ClassNotFoundException
      */
-	public void insert(Object key, int value) throws IOException, ClassNotFoundException {
+	public void insert(Object key, Long value) throws IOException, ClassNotFoundException {
         if (size() == maxCapacity) {
             // grow and rotate tree
             if (LOG.isDebugEnabled()) {
@@ -190,8 +190,8 @@ public class BTree {
     /**
      * 唯一索引可以使用该方法，找到最近的那个k，v
      */
-    public Integer get(Object key) throws IOException, ClassNotFoundException {
-        Integer result = null;
+    public Long get(Object key) throws IOException, ClassNotFoundException {
+        Long result = null;
         int i = findNearestKeyAbove(key);
         if ((i < size()) && (isEqual(key, getKeys().get(i)))) {
             result = getValues().get(i);
@@ -201,6 +201,8 @@ public class BTree {
         }
         //TODO
         //root节点应该释放内存
+        this.release();
+        
         return result;
     }
     
@@ -211,11 +213,13 @@ public class BTree {
      * @throws IOException
      * @throws ClassNotFoundException
      */
-    public ArrayList<Integer> getAll(Object key) throws IOException, ClassNotFoundException {
-    	ArrayList<Integer> chain = new ArrayList<Integer>();
+    public ArrayList<Long> getAll(Object key) throws IOException, ClassNotFoundException {
+    	ArrayList<Long> chain = new ArrayList<Long>();
         getAll(key,chain);
         //TODO
         //root节点应该释放内存
+        this.release();
+        
         return chain;
     }
 
@@ -226,7 +230,7 @@ public class BTree {
 		return keys;
 	}
 
-	private ArrayList<Integer> getValues() {
+	private ArrayList<Long> getValues() {
 		return values;
 	}
 
@@ -410,12 +414,12 @@ public class BTree {
                 }
                 fetus.getKeys().addAll(sub);
             }
-            List<Integer> sub = child.getValues().subList(degree, maxCapacity);
+            List<Long> sub = child.getValues().subList(degree, maxCapacity);
             fetus.getValues().addAll(sub);
             if (!child.isLeaf()) {
             	LOG.debug("Transfer t children from existing child to new child");
-                sub = child.getChildNodeIds().subList(degree, maxCapacity + 1);
-                fetus.addChildren(sub, child.getLoadedChildren());
+                List<Integer> ChildSub = child.getChildNodeIds().subList(degree, maxCapacity + 1);
+                fetus.addChildren(ChildSub, child.getLoadedChildren());
                 for (i = maxCapacity; i >= degree; i--) {
                     child.getChildNodeIds().remove(i);
                 }
@@ -426,7 +430,7 @@ public class BTree {
             if (LOG.isDebugEnabled()) {
             	LOG.debug("Pivot key: " + pivotKey);
             }
-            int pivotVal = (Integer) child.getValues().get(degree - 1);
+            long pivotVal = child.getValues().get(degree - 1);
             getKeys().add(pivot, pivotKey);
             getValues().add(pivot, pivotVal);
 
@@ -437,7 +441,7 @@ public class BTree {
             }
         }
     
-    private void insertNotfull(Object key, int value)
+    private void insertNotfull(Object key, Long value)
             throws IOException, ClassNotFoundException {
             int i = findNearestKeyBelow(key);
             if (isLeaf()) {
@@ -597,7 +601,7 @@ public class BTree {
      * @throws IOException
      * @throws ClassNotFoundException
      */
-    private void getAll(Object key, ArrayList<Integer> chain) throws IOException, ClassNotFoundException {
+    private void getAll(Object key, ArrayList<Long> chain) throws IOException, ClassNotFoundException {
         int start = findNearestKeyAbove(key);
         if(isLeaf()) {
             int stop;
@@ -620,8 +624,8 @@ public class BTree {
     public void saveAll(File indexDirectory) throws IOException, ClassNotFoundException {
         indexDir = indexDirectory;
         saveAll();
-        
         //root节点应该释放内存
+        this.release();
     }
     
     private void saveAll() throws IOException, ClassNotFoundException {
@@ -656,7 +660,7 @@ public class BTree {
         out.writeInt(size());
         for (int i = 0; i < size(); i++) {
             out.writeObject(getKeys().get(i));
-            out.writeInt(getValues().get(i));
+            out.writeLong(getValues().get(i));
         }
         out.writeInt(this.childNodeIds.size());
         for (int i = 0; i < this.childNodeIds.size(); i++) {
@@ -682,7 +686,7 @@ public class BTree {
         int size = in.readInt();
         for (int i = 0; i < size; i++) {
             getKeys().add(in.readObject());
-            getValues().add(in.readInt());
+            getValues().add(in.readLong());
         }
         size = in.readInt();
         for (int i = 0; i < size; i++) {
@@ -690,5 +694,11 @@ public class BTree {
         }
         in.close();
         fin.close();
+    }
+    
+    private void release(){
+    	if(this.isRoot()){
+    		this.loadedChildren.clear();
+    	}
     }
 }

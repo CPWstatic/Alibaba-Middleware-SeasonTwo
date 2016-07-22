@@ -7,6 +7,11 @@ import java.util.Comparator;
 
 import pw.hellojava.middlware.race.util.BTree;
 
+/**
+ * 
+ * @author root
+ *
+ */
 public class Index {
 	
 	private String indexName;
@@ -46,14 +51,14 @@ public class Index {
 	 * @param key
 	 * @return 符合条件的地址列表
 	 */
-	public ArrayList<Integer> get(Object key){
+	public ArrayList<Long> get(Object key){
 		//TODO 
 		//BTree暂时不支持rangequery
 		try{
 		if(isUnique){
-			Integer value = index.get(key);
+			Long value = index.get(key);
 			if(value != null){
-				ArrayList<Integer> result = new ArrayList<Integer>();
+				ArrayList<Long> result = new ArrayList<Long>();
 				result.add(value);
 				return result;
 			}
@@ -77,7 +82,7 @@ public class Index {
 	 * @param value
 	 * @return
 	 */
-	public boolean insert(Object key, Integer value){
+	public boolean insert(Object key, Long value){
 		try {
 			index.insert(key, value);
 			return true;
@@ -90,6 +95,10 @@ public class Index {
 	
 	public BTree getIndex() {
 		return index;
+	}
+	
+	public String getIndexName(){
+		return this.indexName;
 	}
 	
 	public void saveIndex(File indexDirectory){
