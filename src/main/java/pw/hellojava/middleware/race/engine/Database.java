@@ -24,7 +24,7 @@ public class Database {
 	/**
 	 * 对于order大表，存储完整的列信息
 	 */
-	private ArrayList<Colomn> orderColomns;
+	private ArrayList<String> orderColomns;
 	
 	/**
 	 * k=path,v=table
@@ -34,7 +34,7 @@ public class Database {
 	/**
 	 * 对于buyer大表，存储完整的列信息
 	 */
-	private ArrayList<Colomn> buyerColomns;
+	private ArrayList<String> buyerColomns;
 	
 	/**
 	 * k=path,v=table
@@ -44,7 +44,7 @@ public class Database {
 	/**
 	 * 对于buyer大表，存储完整的列信息
 	 */
-	private ArrayList<Colomn> goodColomns;
+	private ArrayList<String> goodColomns;
 	
 	private Database(){
 		this.orderTables = new ConcurrentHashMap<String,Table>();
@@ -67,11 +67,15 @@ public class Database {
 		return instance;
 	}
 	
+	public void setGoodColomns(ArrayList<String> goodColomns) {
+		this.goodColomns = goodColomns;
+	}
+
 	public Table setAnOrderTable(String tableName,Table table){
 		return this.orderTables.put(tableName, table);
 	}
 	
-	public void setOrderColomns(ArrayList<Colomn> colomns){
+	public void setOrderColomns(ArrayList<String> colomns){
 		this.orderColomns = colomns;
 	}
 	
@@ -79,7 +83,7 @@ public class Database {
 		return this.buyerTables.put(tableName, table);
 	}
 	
-	public void setButerColomns(ArrayList<Colomn> colomns){
+	public void setBuyerColomns(ArrayList<String> colomns){
 		this.buyerColomns = colomns;
 	}
 	
@@ -91,7 +95,7 @@ public class Database {
 		return this.orderTables;
 	}
 	
-	public List<Colomn> getOrderColomns(){
+	public List<String> getOrderColomns(){
 		return this.orderColomns;
 	}
 	
@@ -99,7 +103,7 @@ public class Database {
 		return this.buyerTables;
 	}
 	
-	public List<Colomn> getBuyerColomns(){
+	public List<String> getBuyerColomns(){
 		return this.buyerColomns;
 	}
 	
@@ -107,7 +111,7 @@ public class Database {
 		return this.goodTables;
 	}
 	
-	public List<Colomn>  getGoodColomns(){
+	public List<String>  getGoodColomns(){
 		return this.goodColomns;
 	}
 }

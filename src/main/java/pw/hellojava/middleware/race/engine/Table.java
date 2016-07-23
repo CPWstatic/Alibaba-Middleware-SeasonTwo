@@ -14,6 +14,11 @@ public class Table {
 	
 	private String path;
 	
+	public String getPath() {
+		return path;
+	}
+
+
 	/**
 	 * colomn信息,小表的列信息
 	 */
@@ -33,6 +38,7 @@ public class Table {
 		this.tableName = tName;
 		this.path = path;
 		this.colomns = colomns;
+		this.indexes = new ConcurrentHashMap<String, Index>();
 	}
 
 	public String getTableName() {
@@ -61,10 +67,6 @@ public class Table {
 
 	public void setAnIndex(String colomn, Index index) {
 		this.indexes.put(colomn, index);
-	}
-	
-	public String getPath(){
-		return this.path;
 	}
 	
 }

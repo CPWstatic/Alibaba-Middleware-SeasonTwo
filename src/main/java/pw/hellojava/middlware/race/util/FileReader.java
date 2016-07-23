@@ -13,13 +13,13 @@ public class FileReader {
 		RandomAccessFile ran = new RandomAccessFile(file, "r");
 		ran.seek(offset);
 		String line = new String(ran.readLine().getBytes("iso8859-1"), "utf-8");
-		System.out.println(line);
+//		System.out.println(line);
 		ran.close();
 		
 		String[] key_values = line.split("\t");
 		for (String key_value : key_values) {
 			String[] kv = key_value.split(":");
-			row.put(key_value, key_value);
+			row.put(kv[0], kv[1]);
 		}
 		
 		return row;

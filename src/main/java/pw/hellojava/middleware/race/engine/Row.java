@@ -2,6 +2,7 @@ package pw.hellojava.middleware.race.engine;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Map;
 
 import com.alibaba.middleware.race.KV;
 
@@ -18,7 +19,7 @@ public class Row {
 	}
 	
 	public KV get(String key){
-		return key == null? null:get(key);
+		return key == null? null:this.row.get(key);
 	}
 	
 	public Row put(String key, String value){
@@ -30,6 +31,14 @@ public class Row {
 		KV kv = new KV(key,value.toString());
 		this.row.put(key, kv);
 		return this;
+	}
+	
+	public void putAll(Map<String,KV> m){
+		this.row.putAll(m);
+	}
+	
+	public Map<String,KV> getAll(){
+		return this.row;
 	}
 	
 	public Collection<KV> getValues(){

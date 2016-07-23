@@ -8,6 +8,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.Map.Entry;
+import java.util.concurrent.ExecutionException;
 
 import com.alibaba.middleware.race.KV;
 import com.alibaba.middleware.race.OrderSystem;
@@ -19,6 +20,7 @@ import com.alibaba.middleware.race.ResultImp;
 import pw.hellojava.middleware.race.engine.Database;
 import pw.hellojava.middleware.race.engine.Row;
 import pw.hellojava.middleware.race.engine.Table;
+import pw.hellojava.middlware.race.util.FileLoader;
 import pw.hellojava.middlware.race.util.FileReader;
 
 /**
@@ -38,7 +40,14 @@ public class OrderSystemImp implements OrderSystem{
 	public void construct(Collection<String> orderFiles, Collection<String> buyerFiles, Collection<String> goodFiles,
 			Collection<String> storeFolders) throws IOException, InterruptedException {
 		// TODO Auto-generated method stub
-		
+		FileLoader loader = new FileLoader();
+		try {
+			loader.prepare_singleThread(orderFiles, buyerFiles, goodFiles, storeFolders);
+		} catch (ExecutionException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		db = loader.getDB();
 	}
 
 
@@ -56,7 +65,7 @@ public class OrderSystemImp implements OrderSystem{
 		
 		for(Entry<String,Table> entry : db.getOrderTables().entrySet()){
 			Table table = entry.getValue();
-			ArrayList<Long> offsets = table.getAnIndex("orderid").get(orderId);
+			ArrayList<Long> offsets = table.getAnIndex(table.getTableName() + "orderid").get(orderId);
 			if(offsets != null && offsets.size() == 1){
 				File file = new File(table.getPath()+table.getTableName());
 				try {
@@ -72,6 +81,7 @@ public class OrderSystemImp implements OrderSystem{
 			return null;
 		}
 		
+		//order存在，对应的buyer以及good必定存在，但是对应的查询字段不一定存在
 		buyerRow = this.joinBuyerQuery(orderRow.get("buyerid").valueAsString());
 
 		goodRow = this.joinGoodQuery(orderRow.get("goodid").valueAsString());
@@ -97,7 +107,7 @@ public class OrderSystemImp implements OrderSystem{
 		//从orders中查出所有符合条件的数据
 		for(Entry<String,Table> entry : db.getOrderTables().entrySet()){
 			Table table = entry.getValue();
-			ArrayList<Long> offsets = table.getAnIndex("orderid").get(buyerid);
+			ArrayList<Long> offsets = table.getAnIndex(table.getTableName() + "buyerid").get(buyerid);
 			File file = new File(table.getPath()+table.getTableName());
 			if(offsets != null){
 				for(Long offset:offsets){
@@ -117,6 +127,7 @@ public class OrderSystemImp implements OrderSystem{
 		if(orderRows.size() == 0){
 			//如果该buyerid不在order中，返回什么
 			//TODO
+			return null;
 		}
 		
 		//join操作
@@ -151,32 +162,58 @@ public class OrderSystemImp implements OrderSystem{
 
 	@Override
 	public Iterator<Result> queryOrdersBySaler(String salerid, String goodid, Collection<String> keys) {
+		boolean joinBuyer = false;
+		boolean joinGood = false;
+		boolean isOrder = false;
+		if(keys == null){
+			joinBuyer = true;
+			joinGood = true;
+			isOrder = true;
+		}else{
+			for(String key : keys){
+				if(!db.getOrderColomns().contains(key)){
+					if(db.getBuyerColomns().contains(key)){
+						joinBuyer = true;
+					}else if(db.getGoodColomns().contains(key)){
+						joinGood = true;
+					}
+				}else{
+					isOrder = true;
+				}
+			}
+		}
+		
+		//所有key都不存在
+		if(!(isOrder || joinBuyer || joinGood)){
+			return null;
+		}
 		
 		ArrayList<Row> orderRows = new ArrayList<Row>();
 		ArrayList<Result> results = new ArrayList<Result>();
 
-		//按照goodid查询，用salerid过滤
+		//按照goodid查询,这是必须执行的步骤
 		for(Entry<String,Table> entry : db.getOrderTables().entrySet()){
 			Table table = entry.getValue();
-			ArrayList<Long> offsets = table.getAnIndex("orderid").get(goodid);
-			File file = new File(table.getPath()+table.getTableName());
+			ArrayList<Long> offsets = table.getAnIndex(table.getTableName() + "goodid").get(goodid);
+			File file = new File(table.getPath());
 			if(offsets != null){
 				for(Long offset:offsets){
 					try{
 						Row orderRow = FileReader.fileRead(file, offset);
-						String saleridQ = orderRow.get("salerid").valueAsString();
-						if(saleridQ.equals(salerid)){
-							orderRows.add(orderRow);
-						}
-					}catch(Exception e){
+//						String saleridQ = orderRow.get("salerid").valueAsString();
+//						if(saleridQ.equals(salerid)){
 						
+						orderRows.add(orderRow);
+//						}
+					}catch(Exception e){
+						System.out.println(e.getMessage());
 					}
 				}
 			}
 		}
 		
+		//如果为空，则排除所有字段
 		if(keys !=null && keys.size() == 0){
-			//如果为空，则排除所有字段
 			for(Row orderRow : orderRows){
 				try {
 					results.add(ResultImp.createNoRow(orderRow.get("orderid").valueAsLong()));
@@ -184,24 +221,56 @@ public class OrderSystemImp implements OrderSystem{
 					
 				}
 			}
+			sortOnOrderid(results);
 			return results.iterator();
 		}
 		
-		//join操作
-		//已知goodid，只用查询一次
-		Row goodRow = this.joinGoodQuery(goodid);
-		//
-		for(Row orderRow : orderRows){
-			Row buyerRow = this.joinBuyerQuery(orderRow.get("buyerid").valueAsString());
-			
-			if(keys == null){
-				//待查询的字段，如果为null，则查询所有字段
-				results.add(ResultImp.createResultRow(orderRow, buyerRow, goodRow));
-			}else{
-				results.add(ResultImp.createResultRow(orderRow, buyerRow, goodRow, keys));
+		//要查询的key都在order中
+		if(isOrder && !(joinBuyer || joinGood)){
+			for(Row orderRow : orderRows){
+				results.add(ResultImp.createResultRow(orderRow,null,null));
 			}
+			
+			sortOnOrderid(results);
+			return results.iterator();
+		}else if(joinGood && !joinBuyer){
+			//join了good表,没有buyer
+			Row goodRow = this.joinGoodQuery(goodid);
+			for(Row orderRow : orderRows){
+				results.add(ResultImp.createResultRow(orderRow, null, goodRow, keys));
+			}
+			sortOnOrderid(results);
+			return results.iterator();
+		}else if(!joinGood && joinBuyer){
+			//join了buyer表,没有good
+			for(Row orderRow : orderRows){
+				Row buyerRow = this.joinBuyerQuery(orderRow.get("buyerid").valueAsString());
+				results.add(ResultImp.createResultRow(orderRow, buyerRow, null, keys));		
+			}
+			sortOnOrderid(results);
+			return results.iterator();
+		}else if(joinGood && joinBuyer){
+			//join两张表
+			Row goodRow = this.joinGoodQuery(goodid);
+			for(Row orderRow : orderRows){
+				Row buyerRow = this.joinBuyerQuery(orderRow.get("buyerid").valueAsString());
+				if(keys == null){
+					//待查询的字段，如果为null，则查询所有字段
+					results.add(ResultImp.createResultRow(orderRow, buyerRow, goodRow));
+				}else{
+					results.add(ResultImp.createResultRow(orderRow, buyerRow, goodRow, keys));
+				}
+			}
+			sortOnOrderid(results);
+			return results.iterator();
+		}else{
+			return null;
 		}
+
 		
+	}
+	
+	private void sortOnOrderid(ArrayList<Result> results){
 		//按照订单id从小至大排序
 		Collections.sort(results,new Comparator<Result>(){
 
@@ -218,8 +287,6 @@ public class OrderSystemImp implements OrderSystem{
 			}
 			
 		});
-		
-		return results.iterator();
 	}
 
 	@Override
@@ -242,7 +309,7 @@ public class OrderSystemImp implements OrderSystem{
 
 		for(Entry<String,Table> entry : db.getOrderTables().entrySet()){
 			Table table = entry.getValue();
-			ArrayList<Long> offsets = table.getAnIndex("orderid").get(goodid);
+			ArrayList<Long> offsets = table.getAnIndex(table.getTableName() + "goodid").get(goodid);
 			File file = new File(table.getPath()+table.getTableName());
 			if(offsets != null){
 				for(Long offset:offsets){
@@ -267,8 +334,12 @@ public class OrderSystemImp implements OrderSystem{
 			}
 			return new KV(goodid,sumUp(buyerRows,key));
 		}else if(joinGood){
-			Row goodRow = this.joinBuyerQuery(goodid);
-
+			Row goodRow = this.joinGoodQuery(goodid);
+			//如果查询订单中的所有商品均不包含该字段，则返回null
+			if(goodRow.get(key) == null){
+				return null;
+			}
+			
 			ArrayList<Row> goodRows = new ArrayList<Row>();
 			for(int i = 0; i < orderRows.size(); i++){
 				goodRows.add(goodRow);
@@ -280,13 +351,14 @@ public class OrderSystemImp implements OrderSystem{
 		return null;
 	}
 	
-	public String sumUp(ArrayList<Row> rows , String key){
+	private String sumUp(ArrayList<Row> rows , String key){
 		Double dsum = 0.0;
 		Long lsum = (long) 0;
 		boolean isLong = false;
 		boolean isDouble = false;
 		for(Row row : rows){
 			KV kv = row.get(key);
+//			System.out.println(kv + "\n");
 			if(kv != null){
 				if(kv.valueAsString().contains(".")){
 					try {
@@ -311,22 +383,24 @@ public class OrderSystemImp implements OrderSystem{
 			return sum.toString();
 		}else if(isLong && !isDouble){
 			return lsum.toString();
-		}else{
+		}else if(!isLong && isDouble){
 			return dsum.toString();
 		}
+		//如果查询订单中的所有商品均不包含该字段，则返回null
+		return null;
 	}
 	
 	private Row joinBuyerQuery(String colomnValue){
 		//未找到返回null
 		for(Entry<String,Table> entry : db.getBuyerTables().entrySet()){
 			Table table = entry.getValue();
-			ArrayList<Long> offsets = table.getAnIndex("buyerid").get(colomnValue);
+			ArrayList<Long> offsets = table.getAnIndex(table.getTableName() + "buyerid").get(colomnValue);
 			if(offsets != null && offsets.size() == 1){
-				File file = new File(table.getPath()+table.getTableName());
+				File file = new File(table.getPath());
 				try {
 					return FileReader.fileRead(file, offsets.get(0));
 				} catch (IOException e) {
-					
+					System.out.println(e.getMessage()); 
 				}
 			}
 		}
@@ -337,9 +411,9 @@ public class OrderSystemImp implements OrderSystem{
 	private Row joinGoodQuery(String colomnValue){
 		for(Entry<String,Table> entry : db.getGoodTables().entrySet()){
 			Table table = entry.getValue();
-			ArrayList<Long> offsets = table.getAnIndex("goodid").get(colomnValue);
+			ArrayList<Long> offsets = table.getAnIndex(table.getTableName() + "goodid").get(colomnValue);
 			if(offsets != null && offsets.size() == 1){
-				File file = new File(table.getPath()+table.getTableName());
+				File file = new File(table.getPath());
 				try {
 					return FileReader.fileRead(file, offsets.get(0));
 				} catch (IOException e) {
