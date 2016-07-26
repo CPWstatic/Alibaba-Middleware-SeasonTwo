@@ -1,11 +1,13 @@
 package com.alibaba.middleware.race;
 
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.Set;
 
 import com.alibaba.middleware.race.OrderSystem.KeyValue;
 import com.alibaba.middleware.race.OrderSystem.Result;
 import com.alibaba.middleware.race.OrderSystem.TypeException;
+
 import com.alibaba.middleware.race.engine.Row;
 
 /**
@@ -30,7 +32,7 @@ public class ResultImp implements Result{
 
     public static ResultImp createResultRow(Row orderData, Row buyerData,
             Row goodData, Collection<String> queryingKeys) {
-          if (orderData == null || buyerData == null || goodData == null) {
+          if (orderData == null) {
             throw new RuntimeException("Bad data!");
           }
           Row row = new Row();
@@ -46,25 +48,30 @@ public class ResultImp implements Result{
               row.put(kv.key(), kv.valueAsString());
             }
           }
-          for (KV kv : buyerData.getValues()) {
-            if (queryingKeys == null || queryingKeys.contains(kv.key())) {
-            	row.put(kv.key(), kv.valueAsString());
-            }
+          
+          if(buyerData != null){
+        	  for (KV kv : buyerData.getValues()) {
+        		  if (queryingKeys == null || queryingKeys.contains(kv.key())) {
+        			  row.put(kv.key(), kv.valueAsString());
+        		  }
+        	  }
           }
-          for (KV kv : goodData.getValues()) {
-            if (queryingKeys == null || queryingKeys.contains(kv.key())) {
-            	row.put(kv.key(), kv.valueAsString());
-            }
+          if(goodData != null){
+        	  for (KV kv : goodData.getValues()) {
+        		  if (queryingKeys == null || queryingKeys.contains(kv.key())) {
+        			  row.put(kv.key(), kv.valueAsString());
+        		  }
+        	  }
           }
           return new ResultImp(orderid, row);
         }
     
     public static ResultImp createResultRow(Row orderData, Row buyerData,
             Row goodData) {
-          if (orderData == null || buyerData == null || goodData == null) {
+          if (orderData == null) {
             throw new RuntimeException("Bad data!");
           }
-          Row row = new Row();
+          Row resultRow = new Row();
           long orderid;
           try {
             orderid = orderData.get("orderid").valueAsLong();
@@ -72,17 +79,17 @@ public class ResultImp implements Result{
             throw new RuntimeException("Bad data!");
           }
 
-          for (KV kv : orderData.getValues()) {
-              row.put(kv.key(), kv.valueAsString());
-          }
-          for (KV kv : buyerData.getValues()) {
-            	row.put(kv.key(), kv.valueAsString());
-          }
-          for (KV kv : goodData.getValues()) {
-            	row.put(kv.key(), kv.valueAsString());
-          }
-          return new ResultImp(orderid, row);
+          resultRow.putAll(orderData.getAll());
+          
+          if(buyerData != null)
+        	  resultRow.putAll(buyerData.getAll());
+          
+          if(goodData != null)
+        	  resultRow.putAll(goodData.getAll());
+          
+          return new ResultImp(orderid, resultRow);
         }
+    
     
     public static ResultImp createNoRow(Long orderid){
     	return new ResultImp(orderid, new Row());
