@@ -25,15 +25,15 @@ public class FileLoader {
 
 	public void prepare(Collection<String> orderFiles, Collection<String> buyerFiles, Collection<String> goodFiles,
 			Collection<String> storeFolders) throws IOException, InterruptedException, ExecutionException {
-		long createTime = System.currentTimeMillis();
+//		long createTime = System.currentTimeMillis();
 
 		Iterator<String> orderFilesIterator = orderFiles.iterator();
 		Iterator<String> buyerFilesIterator = buyerFiles.iterator();
 		Iterator<String> goodFilesIterator = goodFiles.iterator();
 
-		LinkedBlockingQueue<String> disk1Queue = new LinkedBlockingQueue<>();
-		LinkedBlockingQueue<String> disk2Queue = new LinkedBlockingQueue<>();
-		LinkedBlockingQueue<String> disk3Queue = new LinkedBlockingQueue<>();
+		LinkedBlockingQueue<String> disk1Queue = new LinkedBlockingQueue<>(100);
+		LinkedBlockingQueue<String> disk2Queue = new LinkedBlockingQueue<>(100);
+		LinkedBlockingQueue<String> disk3Queue = new LinkedBlockingQueue<>(100);
 
 		CountDownLatch countDownLatch = new CountDownLatch(3);
 		
@@ -60,11 +60,11 @@ public class FileLoader {
 		disk3Queue.add("end");
 		countDownLatch.await();
 
-		System.out.println("total time:" + (System.currentTimeMillis() - createTime));
-		System.out.println("orderKeySize:" + orderKeys.size());
-		System.out.println("goodKeySize:" + goodKeys.size());
-		System.out.println("buyerKeySize:" + buyerKeys.size());
-		System.out.println("total time:" + (System.currentTimeMillis() - createTime));
+//		System.out.println("total time:" + (System.currentTimeMillis() - createTime));
+//		System.out.println("orderKeySize:" + orderKeys.size());
+//		System.out.println("goodKeySize:" + goodKeys.size());
+//		System.out.println("buyerKeySize:" + buyerKeys.size());
+//		System.out.println("total time:" + (System.currentTimeMillis() - createTime));
 	}
 
 	private void collectorTraversal(Iterator<String> fileIterator, LinkedBlockingQueue<String> disk1Queue,

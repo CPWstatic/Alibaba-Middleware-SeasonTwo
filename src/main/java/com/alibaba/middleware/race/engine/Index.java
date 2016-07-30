@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 
 import com.alibaba.middlware.race.util.BTree;
+import com.esotericsoftware.kryo.Kryo;
+
 
 /**
  * 
@@ -106,6 +108,7 @@ public class Index {
 	
 	public void saveIndex(File indexDirectory){
 		try {
+			
 			this.index.saveAll(indexDirectory);
 		} catch (ClassNotFoundException e) {
 			// TODO Auto-generated catch block

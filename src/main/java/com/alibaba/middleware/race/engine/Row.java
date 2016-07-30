@@ -12,11 +12,6 @@ import com.alibaba.middleware.race.KV;
  *
  */
 public class Row {
-	@Override
-	public String toString() {
-		return "Row [row=" + row + "]";
-	}
-
 	private HashMap<String,KV> row;
 	
 	public Row(){

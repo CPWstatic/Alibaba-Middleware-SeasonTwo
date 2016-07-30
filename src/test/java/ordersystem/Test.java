@@ -15,11 +15,10 @@ import com.alibaba.middleware.race.OrderSystemImpl;
 import com.alibaba.middleware.race.OrderSystem.KeyValue;
 import com.alibaba.middleware.race.OrderSystem.Result;
 import com.alibaba.middleware.race.OrderSystem.TypeException;
-import com.alibaba.middlware.race.util.FileLoader;
 
 public class Test {
 	
-	private static ExecutorService queryExecutor = Executors.newFixedThreadPool(5);
+	private static ExecutorService queryExecutor = Executors.newFixedThreadPool(4);
 	
 	private static OrderSystem orderSystem = new OrderSystemImpl();
 	
@@ -54,40 +53,40 @@ public class Test {
 		
 		//QueryOrder
 		Set<String> set = new LinkedHashSet<String>();
-		set.add("a_o_22304");
+		set.add("description");
 //		set.add("a_g_10209");
 //		set.add("a_b_11255");
 //		set.add("a_b_7337");
 //		set.add("a_o_4699");
 		
-		long orderid = 592179941;
+		long orderid = 587841099;
 		QueryOrder q1 = new QueryOrder(orderid,set);
 		
 		//QueryOrdersByBuyer
-		String buyerId = "ap-8b24-9412f1512ece";
-		long startTime = 1467107930;
-		long endTime = 1468542825;
+		String buyerId = "wx-a0e0-6bda77db73ca";
+		long startTime = 1462018520;
+		long endTime = 1473999229;
 		QueryOrdersByBuyer q2 = new QueryOrdersByBuyer(startTime, endTime, buyerId);
 		
 		//QueryOrdersBySaler
-		String salerid = "almm-8d21-784c956eede9";
-		String goodid = "al-aa29-be46a86b30c9";
+		String salerid = "almm-9347-39dc741cb69d";
+		String goodid = "al-8b5a-04d58d41231c";
 		Collection<String> keys = new LinkedHashSet<String>();
-		keys.add("a_6b_31770");
+//		keys.add("a_b_317703");
 //		keys.add("a_g_32587");
 		QueryOrdersBySaler q3 = new QueryOrdersBySaler(salerid,goodid,keys);
 		
 		//SumOrdersByGood
-		String q4goodid = "aye-945e-35a09f491917";
-		String key = "a_g_10209";
+		String q4goodid = "al-96e5-7fac3721d4b9";
+		String key = "amount";
 		SumOrdersByGood q4 = new SumOrdersByGood(q4goodid,key);
-
-//		queryExecutor.submit(q1);
-//		queryExecutor.submit(q2);
-//		queryExecutor.submit(q3);
+		
+		queryExecutor.submit(q1);
+		queryExecutor.submit(q2);
+		queryExecutor.submit(q3);
 		queryExecutor.submit(q4);
-
-
+//		Thread.sleep(10000);
+		queryExecutor.shutdown();
 	}
 	
 	static class QueryOrder implements Runnable{
@@ -100,10 +99,11 @@ public class Test {
 		}
 		@Override
 		public void run() {
-
-			System.out.println("queryOrder: " + orderSystem.queryOrder(orderId, keys).toString());
-			
-		}
+			long start = System.currentTimeMillis();
+			Result result = orderSystem.queryOrder(orderId, keys);
+			System.out.println("queryOrder use time: " + (System.currentTimeMillis() - start));
+			System.out.println("queryOrder result: " + result.orderId() + result);
+		}	
 		
 	}
 	
@@ -124,9 +124,10 @@ public class Test {
 		
 		@Override
 		public void run() {
-			System.out.println("queryOrderByBuyer");
+
 			Iterator<Result> itr = orderSystem.queryOrdersByBuyer(startTime, endTime, buyerid);
 			
+			System.out.println("queryOrderByBuyer result:");
 			while(itr.hasNext()){
 				Result result = itr.next();
 				long orderId = result.orderId();
@@ -155,10 +156,12 @@ public class Test {
 		
 		@Override
 		public void run() {
-			System.out.println("queryOrderBySaler");
+
 			long start = System.currentTimeMillis();
 			Iterator<Result> itr = orderSystem.queryOrdersBySaler(salerid, goodid, keys);
-			System.out.println(System.currentTimeMillis() - start);
+			System.out.println("queryOrderBySaler use time: " + (System.currentTimeMillis() - start));
+			
+			System.out.println("queryOrderBySaler result");
 			while(itr.hasNext()){
 				Result result = itr.next();
 				long orderId = result.orderId();
@@ -183,7 +186,7 @@ public class Test {
 		}
 		@Override
 		public void run() {
-			System.out.println("QuerySumOrderByGood" + orderSystem.sumOrdersByGood(goodid, key));
+			System.out.println("QuerySumOrderByGood result:" + orderSystem.sumOrdersByGood(goodid, key));
 			System.out.println();
 		}
 		
