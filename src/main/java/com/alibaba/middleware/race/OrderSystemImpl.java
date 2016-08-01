@@ -28,9 +28,8 @@ import com.alibaba.middleware.race.engine.QuerySingleRowTask;
 import com.alibaba.middleware.race.engine.Row;
 import com.alibaba.middleware.race.engine.Table;
 import com.alibaba.middleware.race.engine.WhereStrategy;
+import com.alibaba.middlware.race.util.Constructor;
 import com.alibaba.middlware.race.util.CustomExecutorCompletionService;
-import com.alibaba.middlware.race.util.FileLoader;
-import com.alibaba.middlware.race.util.FileReader;
 import com.googlecode.concurrentlinkedhashmap.ConcurrentLinkedHashMap;
 import com.googlecode.concurrentlinkedhashmap.Weighers;
 
@@ -60,19 +59,16 @@ public class OrderSystemImpl implements OrderSystem{
 	public void construct(Collection<String> orderFiles, Collection<String> buyerFiles, Collection<String> goodFiles,
 			Collection<String> storeFolders) throws IOException, InterruptedException {
 		long constructTime = System.currentTimeMillis();
-		FileLoader loader = new FileLoader();
+		Constructor constructor = new Constructor();
+		
 		try {
-			loader.prepare(orderFiles, buyerFiles, goodFiles, storeFolders);
+			constructor.prepare(orderFiles, buyerFiles, goodFiles, storeFolders);
 		} catch (ExecutionException e) {
-			System.out.println(e.getMessage());
-		} catch(IOException ioe){
-			System.out.println(ioe.getMessage());
-			throw ioe;
-		} catch(InterruptedException ie){
-			System.out.println(ie.getMessage());
-			throw ie;
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
-		db = loader.getDB();
+		
+		db = constructor.getDB();
 		
 		System.out.println("total Construct Time" + (System.currentTimeMillis() - constructTime));
 		System.out.println(orderFiles);
@@ -323,7 +319,7 @@ public class OrderSystemImpl implements OrderSystem{
 			}
 		}
 
-		ArrayList<Result> results = new ArrayList<Result>();
+//		ArrayList<Result> results = new ArrayList<Result>();
 
 		//查询订单
 		ArrayList<Row> orderRows = ordersMultiRowQuery(goodid);
@@ -537,12 +533,26 @@ public class OrderSystemImpl implements OrderSystem{
 			Table table = entry.getValue();
 			for(Entry<String,Index> index : table.getIndexes().entrySet()){
 				if(index.getKey().startsWith(table.getTableName() + tableSub)){
-					if(table.getPath().startsWith("/disk1"))
-						futures.add(ecs.submit(new QuerySingleRowTask(index.getValue(),table.getPath(),column),"disk1"));
-					if(table.getPath().startsWith("/disk2"))
-						futures.add(ecs.submit(new QuerySingleRowTask(index.getValue(),table.getPath(),column),"disk2"));
-					if(table.getPath().startsWith("/disk3"))
-						futures.add(ecs.submit(new QuerySingleRowTask(index.getValue(),table.getPath(),column),"disk3"));
+					if(table.getPath().startsWith("/disk1")){
+						if(table.getTableName().startsWith("order"))
+							futures.add(ecs.submit(new QuerySingleRowTask(index.getValue(),table.getPath(),column,false),"disk1"));
+						else
+							futures.add(ecs.submit(new QuerySingleRowTask(index.getValue(),table.getPath(),column,true),"disk1"));
+					}
+						
+					if(table.getPath().startsWith("/disk2")){
+						if(table.getTableName().startsWith("order"))
+							futures.add(ecs.submit(new QuerySingleRowTask(index.getValue(),table.getPath(),column,false),"disk2"));
+						else
+							futures.add(ecs.submit(new QuerySingleRowTask(index.getValue(),table.getPath(),column,true),"disk2"));
+					}
+					
+					if(table.getPath().startsWith("/disk3")){
+						if(table.getTableName().startsWith("order"))
+							futures.add(ecs.submit(new QuerySingleRowTask(index.getValue(),table.getPath(),column,false),"disk3"));
+						else
+							futures.add(ecs.submit(new QuerySingleRowTask(index.getValue(),table.getPath(),column,true),"disk3"));
+					}
 				}
 			}
 		}

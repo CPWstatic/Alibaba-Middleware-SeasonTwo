@@ -18,7 +18,7 @@ import com.alibaba.middleware.race.OrderSystem.TypeException;
 
 public class Test {
 	
-	private static ExecutorService queryExecutor = Executors.newFixedThreadPool(4);
+	private static ExecutorService queryExecutor = Executors.newFixedThreadPool(10);
 	
 	private static OrderSystem orderSystem = new OrderSystemImpl();
 	
@@ -85,6 +85,18 @@ public class Test {
 		queryExecutor.submit(q2);
 		queryExecutor.submit(q3);
 		queryExecutor.submit(q4);
+		queryExecutor.submit(q1);
+		queryExecutor.submit(q2);
+		queryExecutor.submit(q3);
+		queryExecutor.submit(q4);
+		queryExecutor.submit(q1);
+		queryExecutor.submit(q2);
+		queryExecutor.submit(q3);
+		queryExecutor.submit(q4);
+		queryExecutor.submit(q1);
+		queryExecutor.submit(q2);
+		queryExecutor.submit(q3);
+		queryExecutor.submit(q4);
 //		Thread.sleep(10000);
 		queryExecutor.shutdown();
 	}
@@ -102,7 +114,7 @@ public class Test {
 			long start = System.currentTimeMillis();
 			Result result = orderSystem.queryOrder(orderId, keys);
 			System.out.println("queryOrder use time: " + (System.currentTimeMillis() - start));
-			System.out.println("queryOrder result: " + result.orderId() + result);
+//			System.out.println("queryOrder result: " + result.orderId() + result);
 		}	
 		
 	}
@@ -127,17 +139,17 @@ public class Test {
 
 			Iterator<Result> itr = orderSystem.queryOrdersByBuyer(startTime, endTime, buyerid);
 			
-			System.out.println("queryOrderByBuyer result:");
-			while(itr.hasNext()){
-				Result result = itr.next();
-				long orderId = result.orderId();
-				KeyValue[] kv = result.getAll();
-				System.out.print(orderId + " ");
-				for(KeyValue keyvalue:kv){
-					System.out.print(keyvalue);
-				}
-				System.out.println();
-			}
+//			System.out.println("queryOrderByBuyer result:");
+//			while(itr.hasNext()){
+//				Result result = itr.next();
+//				long orderId = result.orderId();
+//				KeyValue[] kv = result.getAll();
+//				System.out.print(orderId + " ");
+//				for(KeyValue keyvalue:kv){
+//					System.out.print(keyvalue);
+//				}
+//				System.out.println();
+//			}
 		}
 		
 	}
@@ -161,17 +173,17 @@ public class Test {
 			Iterator<Result> itr = orderSystem.queryOrdersBySaler(salerid, goodid, keys);
 			System.out.println("queryOrderBySaler use time: " + (System.currentTimeMillis() - start));
 			
-			System.out.println("queryOrderBySaler result");
-			while(itr.hasNext()){
-				Result result = itr.next();
-				long orderId = result.orderId();
-				KeyValue[] kv = result.getAll();
-				System.out.print(orderId + " ");
-				for(KeyValue keyvalue:kv){
-					System.out.print(keyvalue);
-				}
-				System.out.println();
-			}
+//			System.out.println("queryOrderBySaler result");
+//			while(itr.hasNext()){
+//				Result result = itr.next();
+//				long orderId = result.orderId();
+//				KeyValue[] kv = result.getAll();
+//				System.out.print(orderId + " ");
+//				for(KeyValue keyvalue:kv){
+//					System.out.print(keyvalue);
+//				}
+//				System.out.println();
+//			}
 		}
 	}
 	
@@ -186,8 +198,9 @@ public class Test {
 		}
 		@Override
 		public void run() {
-			System.out.println("QuerySumOrderByGood result:" + orderSystem.sumOrdersByGood(goodid, key));
-			System.out.println();
+			KeyValue kv = orderSystem.sumOrdersByGood(goodid, key);
+//			System.out.println("QuerySumOrderByGood result:" + kv);
+//			System.out.println();
 		}
 		
 	}

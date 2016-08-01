@@ -6,6 +6,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.RandomAccessFile;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -15,8 +18,10 @@ import java.util.Map;
 import com.esotericsoftware.kryo.Kryo;
 import com.esotericsoftware.kryo.io.Input;
 import com.esotericsoftware.kryo.io.Output;
-import com.esotericsoftware.kryo.io.UnsafeInput;
-import com.esotericsoftware.kryo.io.UnsafeOutput;
+import com.googlecode.concurrentlinkedhashmap.ConcurrentLinkedHashMap;
+import com.googlecode.concurrentlinkedhashmap.Weighers;
+
+//import Test.Kryo.MemoryBuffer;
 
 
 
@@ -47,9 +52,11 @@ public class BTree {
 	
 	/**
 	 * childNodeIds 为子女们编号，作为指针，通过编号查找子女
-	 * loadedChildren 加载的子女们
+	 * Children 构建时保存的子女们
 	 */
 	private ArrayList<Integer> childNodeIds;
+	private Map<Integer,BTree> children;
+	
 	private Map<Integer,BTree> loadedChildren;
 	
 	/**
@@ -67,7 +74,7 @@ public class BTree {
 	private int nodeIdCounter;
 	
 	/**
-	 * root 持有根节点的引用,根节点也会持有自己的引用
+	 * 持有根节点的引用,根节点也会持有自己的引用
 	 */
 	private BTree root;
 	
@@ -75,6 +82,7 @@ public class BTree {
 	 * comparator 关键字的比较器，策略模式
 	 */
 	private Comparator comparator;
+	private Class clazz;
 	
 	/**
 	 * 创建一个root节点
@@ -85,8 +93,8 @@ public class BTree {
 	 * @throws IOException 
 	 * @throws ClassNotFoundException 
 	 */
-	public BTree(String indexName, File indexDir, Comparator comparator) throws ClassNotFoundException, IOException{
-		this(DEFAULT_DEGREE,null,indexName,indexDir,comparator);
+	public BTree(String indexName, File indexDir, Class clazz) throws ClassNotFoundException, IOException{
+		this(DEFAULT_DEGREE,null,indexName,indexDir,clazz);
 	}
 	
 	/**
@@ -99,7 +107,7 @@ public class BTree {
 	 * @throws IOException 
 	 * @throws ClassNotFoundException 
 	 */
-	public BTree(int degree, BTree root, String indexName, File indexDir, Comparator comparator) throws IOException, ClassNotFoundException{
+	public BTree(int degree, BTree root, String indexName, File indexDir, Class clazz) throws IOException, ClassNotFoundException{
 		this.degree = degree;
 		this.maxCapacity = 2 * degree - 1;
 		//keys至多2 * degree - 1
@@ -107,18 +115,26 @@ public class BTree {
 		this.values = new ArrayList<Long>(maxCapacity);
 		//根和分支节点包含maxCapacity + 1个子女，叶子节点没有子女
 		this.childNodeIds = new ArrayList<Integer>(maxCapacity + 1);
-		//用hashmap存储加载的子女
-		loadedChildren = new HashMap<Integer,BTree>();
+		//
+		children = new HashMap<Integer,BTree>();
+
 		//
 		this.indexName = indexName;
 		this.indexDir = indexDir;
-		this.comparator = comparator;
+		this.clazz = clazz;
+		this.comparator = ComparatorFactory.getComp(clazz);
 		
 		if(root != null){
 			this.root = root;
 		}else{
 			//创建一个root
 			this.root = this;
+			
+			//用google的ConcurrentLinkedHashMap存储加载的子女,root必须创建时，就有这个缓存
+			loadedChildren = new
+				    ConcurrentLinkedHashMap.Builder<Integer,BTree>()
+		            .maximumWeightedCapacity(10).
+		            weigher(Weighers.singleton()).build();
 			
 			//如果存储索引的文件夹以及编号器文件存在，表明索引已经建立，需要将root节点的keys，values加载进来
 			//否则，仅仅设置id
@@ -136,8 +152,8 @@ public class BTree {
 		}
 	}
 	
-	public BTree(int degree, BTree root, String indexName, File indexDir, Comparator comparator,boolean create) throws IOException, ClassNotFoundException{
-		this(degree, root, indexName, indexDir, comparator);
+	public BTree(int degree, BTree root, String indexName, File indexDir, Class clazz,boolean create) throws IOException, ClassNotFoundException{
+		this(degree, root, indexName, indexDir, clazz);
 		if(create){
 			allocate();
 		}
@@ -146,10 +162,16 @@ public class BTree {
     /**
      * Read in an existing node file
      */
-    public BTree(int nodeFileId,int degree, BTree root, String indexName, File indexDir, Comparator comparator) throws IOException, ClassNotFoundException {
-        this(degree, root, indexName, indexDir, comparator);
+    public BTree(int nodeFileId,int degree, BTree root, String indexName, File indexDir, Class clazz) throws IOException, ClassNotFoundException {
+        this(degree, root, indexName, indexDir, clazz);
         this.setCurrentNodeId(nodeFileId);
         readDisk();
+        
+		//用google的ConcurrentLinkedHashMap存储加载的子女
+		loadedChildren = new
+			    ConcurrentLinkedHashMap.Builder<Integer,BTree>()
+	            .maximumWeightedCapacity(10).
+	            weigher(Weighers.singleton()).build();
     }
     
     /**
@@ -168,7 +190,7 @@ public class BTree {
 //            }
 
 //            LOG.debug("Creating new child node");
-            BTree child = new BTree(degree, root, indexName, indexDir,  comparator, true);
+            BTree child = new BTree(degree, root, indexName, indexDir, clazz, true);
 
 //            LOG.debug("Transferring all data to child");
             child.getKeys().addAll(keys);
@@ -187,7 +209,7 @@ public class BTree {
             addChild(0, child);
 
 //            LOG.debug("Subdividing child into 2 children");
-            subdivideChild(0, child);
+            split(0, child);
         }
         insertNotfull(key, value);
     }
@@ -204,9 +226,6 @@ public class BTree {
             // recurse to children
             result = getChildNoCache(i).get(key);
         }
-        //TODO
-        //root节点应该释放内存
-        this.release();
         
         return result;
     }
@@ -219,13 +238,41 @@ public class BTree {
      * @throws ClassNotFoundException
      */
     public ArrayList<Long> getAll(Object key) throws IOException, ClassNotFoundException {
-    	ArrayList<Long> chain = new ArrayList<Long>();
-        getAll(key,chain);
-        //TODO
-        //root节点应该释放内存
-        this.release();
+    	ArrayList<Long> list = new ArrayList<Long>();
+        getAll(key,list);
         
-        return chain;
+        return list;
+    }
+    
+    /**
+     * 唯一索引可以使用该方法，找到最近的那个k，v
+     */
+    public Long getWithCache(Object key) throws IOException, ClassNotFoundException {
+        Long result = null;
+        int i = findNearestKeyAbove(key);
+        if ((i < size()) && (isEqual(key, getKeys().get(i)))) {
+            result = getValues().get(i);
+        } else if (!isLeaf()) {
+            // recurse to children
+            result = getChildCache(i).get(key);
+        }
+      
+        return result;
+    }
+    
+    /**
+     * 非唯一索引，使用getall，返回所有匹配
+     * @param key
+     * @return
+     * @throws IOException
+     * @throws ClassNotFoundException
+     */
+    public ArrayList<Long> getAllWithCache(Object key) throws IOException, ClassNotFoundException {
+    	ArrayList<Long> list = new ArrayList<Long>();
+        getAllWithCache(key,list);
+
+        
+        return list;
     }
 
 	//------------------------------------getters and setters--------------------------------------------------
@@ -244,8 +291,8 @@ public class BTree {
 	}
 
 
-	private Map<Integer, BTree> getLoadedChildren() {
-		return loadedChildren;
+	private Map<Integer, BTree> getChildren() {
+		return children;
 	}
 
 
@@ -380,7 +427,7 @@ public class BTree {
     //---------------------------------------------------------------------------------------------------
 
 	private void addChildrenFrom(BTree tree) {
-        this.addChildren(tree.getChildNodeIds(), tree.getLoadedChildren());
+        this.addChildren(tree.getChildNodeIds(), tree.getChildren());
     }
     
     private void addChildren(List<Integer> childNodeIds,Map<Integer,BTree> children){
@@ -391,15 +438,15 @@ public class BTree {
     
     private void addChild(BTree child) {
     	this.getChildNodeIds().add(child.getCurrentNodeId());
-        this.loadedChildren.put(child.getCurrentNodeId(), child);
+        this.children.put(child.getCurrentNodeId(), child);
     }
     
     private void addChild(int index, BTree child) {
     	this.getChildNodeIds().add(index, child.getCurrentNodeId());
-        this.loadedChildren.put(child.getCurrentNodeId(), child);
+        this.children.put(child.getCurrentNodeId(), child);
     }
 
-	private void subdivideChild(int pivot, BTree child)
+	private void split(int pivot, BTree child)
             throws IOException, ClassNotFoundException {
 //            if (LOG.isDebugEnabled()) {
 //            	LOG.debug("Parent keys: " + getKeys().toString());
@@ -408,23 +455,24 @@ public class BTree {
             int i = 0; // prepare index for loops below
 
 //            LOG.debug("Create new child to take excess data");
-            BTree fetus = new BTree(degree, root, indexName, indexDir,  comparator, true);
+            BTree fetus = new BTree(degree, root, indexName, indexDir,  clazz, true);
             addChild(pivot + 1, fetus);
 
 //            LOG.debug("Transfer (t-1) vals from existing child to new child");
-            {
-                List<Object> sub = child.getKeys().subList(degree, maxCapacity);
+            
+            List<Object> subKeys = child.getKeys().subList(degree, maxCapacity);
 //                if (LOG.isDebugEnabled()) {
 //                	LOG.debug("Moving keys " + sub.toString());
 //                }
-                fetus.getKeys().addAll(sub);
-            }
-            List<Long> sub = child.getValues().subList(degree, maxCapacity);
-            fetus.getValues().addAll(sub);
+            fetus.getKeys().addAll(subKeys);
+            
+            List<Long> subValues = child.getValues().subList(degree, maxCapacity);
+            fetus.getValues().addAll(subValues);
+            
             if (!child.isLeaf()) {
 //            	LOG.debug("Transfer t children from existing child to new child");
                 List<Integer> ChildSub = child.getChildNodeIds().subList(degree, maxCapacity + 1);
-                fetus.addChildren(ChildSub, child.getLoadedChildren());
+                fetus.addChildren(ChildSub, child.getChildren());
                 for (i = maxCapacity; i >= degree; i--) {
                     child.getChildNodeIds().remove(i);
                 }
@@ -463,7 +511,7 @@ public class BTree {
                 i++;
                 BTree child = getChild(i);
                 if (child.size() == maxCapacity) {
-                    subdivideChild(i, child);
+                	split(i, child);
                     if (isGreaterThan(key, getKeys().get(i))) {
                         i++;
                     }
@@ -472,25 +520,59 @@ public class BTree {
             }
         }
 
+    /**
+     * 用于insert
+     * @param index
+     * @return
+     * @throws IOException
+     * @throws ClassNotFoundException
+     */
      private BTree getChild(int index) throws IOException, ClassNotFoundException {
         if (index >= this.childNodeIds.size()) {
             throw new IOException("Node " + this.currentNodeId + " has no child at index " + index);
         } else {
             Integer nodeFileid = this.childNodeIds.get(index);
-            if (loadedChildren.get(nodeFileid) == null) {
-                loadedChildren.put(
-                		nodeFileid,new BTree(nodeFileid, degree, root, indexName, indexDir, comparator));
+            if (children.get(nodeFileid) == null) {
+            	children.put(
+                		nodeFileid,new BTree(nodeFileid, degree, root, indexName, indexDir, clazz));
             }
-            return loadedChildren.get(nodeFileid);
+            return children.get(nodeFileid);
         }
     }
      
+     /**
+      * 用于get，从磁盘读取后缓存一定数量的节点
+      * @param index
+      * @return
+      * @throws IOException
+      * @throws ClassNotFoundException
+      */
+     private BTree getChildCache(int index) throws IOException, ClassNotFoundException{
+    	 if (index >= this.childNodeIds.size()) {
+             throw new IOException("Node " + this.currentNodeId + " has no child at index " + index);
+         } else {
+             Integer nodeFileid = this.childNodeIds.get(index);
+             if (loadedChildren.get(nodeFileid) == null) {
+            	 loadedChildren.put(
+                 		nodeFileid,new BTree(nodeFileid, degree, root, indexName, indexDir, clazz));
+             }
+             return loadedChildren.get(nodeFileid);
+         }
+     }
+     
+     /**
+      * 用于get，每次从磁盘读取节点都要清理内存
+      * @param index
+      * @return
+      * @throws IOException
+      * @throws ClassNotFoundException
+      */
      private BTree getChildNoCache(int index) throws IOException, ClassNotFoundException{
     	 if (index >= this.childNodeIds.size()) {
              throw new IOException("Node " + this.currentNodeId + " has no child at index " + index);
          } else {
              Integer nodeFileid = this.childNodeIds.get(index);
-             return new BTree(nodeFileid, degree, root, indexName, indexDir, comparator);
+             return new BTree(nodeFileid, degree, root, indexName, indexDir, clazz);
             
          }
      }
@@ -533,6 +615,11 @@ public class BTree {
         return cur;
     }
     
+    /**
+     * 
+     * @param key
+     * @return
+     */
     private int findNearestKeyAbove(Object key) {
         int high = size();
         int low = 0;
@@ -616,19 +703,43 @@ public class BTree {
      * @throws IOException
      * @throws ClassNotFoundException
      */
-    private void getAll(Object key, ArrayList<Long> chain) throws IOException, ClassNotFoundException {
+    private void getAll(Object key, ArrayList<Long> list) throws IOException, ClassNotFoundException {
         int start = findNearestKeyAbove(key);
         if(isLeaf()) {
             int stop;
             for(stop = start; stop < size() && isEqual(key,getKeys().get(stop)); stop++) { };
-            chain.addAll(getValues().subList(start,stop));
+            list.addAll(getValues().subList(start,stop));
         } else {
             int i = start;
             for(; i < size() && isEqual(key,getKeys().get(i)); i++) {
-            	getChildNoCache(i).getAll(key,chain);
-                chain.add(getValues().get(i));
+            	getChildNoCache(i).getAll(key,list);
+            	list.add(getValues().get(i));
             }
-            getChildNoCache(i).getAll(key,chain);
+            getChildNoCache(i).getAll(key,list);
+        }
+    }
+    
+    /**
+     * 
+     * 从最接近key的关键字开始，做中根遍历
+     * @param key
+     * @param chain
+     * @throws IOException
+     * @throws ClassNotFoundException
+     */
+    private void getAllWithCache(Object key, ArrayList<Long> list) throws IOException, ClassNotFoundException {
+        int start = findNearestKeyAbove(key);
+        if(isLeaf()) {
+            int stop;
+            for(stop = start; stop < size() && isEqual(key,getKeys().get(stop)); stop++) { };
+            list.addAll(getValues().subList(start,stop));
+        } else {
+            int i = start;
+            for(; i < size() && isEqual(key,getKeys().get(i)); i++) {
+            	getChildCache(i).getAll(key,list);
+            	list.add(getValues().get(i));
+            }
+            getChildCache(i).getAll(key,list);
         }
     }
     
@@ -636,15 +747,17 @@ public class BTree {
      * root节点同时要保存编号器
      * 递归，将整棵树写到磁盘，每个节点一个文件
      */
-    public void saveAll(File indexDirectory) throws IOException, ClassNotFoundException {
+    public void saveAll(File indexDirectory,MemoryBuffer unsafeBuffer) throws IOException, ClassNotFoundException {
         indexDir = indexDirectory;
         
         if (isRoot()) {
         	saveCounterFile();
         }
-        writeDisk();
+        writeDisk(unsafeBuffer);
+
+
         for (int i = 0; i < this.childNodeIds.size(); i++) {
-            getChild(i).saveAll(indexDir);
+            getChild(i).saveAll(indexDir,unsafeBuffer);
         }
         
         //root节点应该释放内存
@@ -656,24 +769,46 @@ public class BTree {
      * 二进制流不方便debug
      * 可以考虑json
      */
-    private void writeDisk() throws IOException {
-    	Kryo kryo = new Kryo();
-		kryo.register(BTreeNodeFile.class);
+    private void writeDisk(MemoryBuffer unsafeBuffer) throws IOException {
     	File nodeFile = getNodeFileById(this.currentNodeId);
-        if (nodeFile == null) {
-            throw new NullPointerException("ObjectBTree must be allocated before writing out to disk");
-        }
-        if (!nodeFile.exists()) {
-        	nodeFile.createNewFile();
-        }
+    	RandomAccessFile raf = null;
+    	MappedByteBuffer mbb = null;
+    	try{
+    		raf = new RandomAccessFile(nodeFile, "rw");
+    		FileChannel fc = raf.getChannel();
+    		mbb = fc.map(FileChannel.MapMode.READ_WRITE, 0, unsafeBuffer.getBuffer().length);
+//    		MemoryBuffer unsafeBuffer = new MemoryBuffer(1024 * 96);
+    		if(clazz == Long.class){
+    			int keySize = keys.size();
+    			unsafeBuffer.putInt(keySize);
+    			for(int i = 0; i < keySize; i++){
+    				unsafeBuffer.putLong((Long)keys.get(i));
+    				unsafeBuffer.putLong((Long)values.get(i));
+    			}
+    		}else if(clazz == String.class){
+    			int keySize = keys.size();
+    			unsafeBuffer.putInt(keySize);
+    			for(int i = 0; i < keySize; i++){
+    				unsafeBuffer.putCharArray(((String)keys.get(i)).toCharArray());
+    				unsafeBuffer.putLong((Long)values.get(i));
+    			}
+    		}
 
-        FileOutputStream fout = new FileOutputStream(nodeFile);
-        Output output = new UnsafeOutput(fout);
-        kryo.writeObject(output, new BTreeNodeFile(this.keys,this.values,this.childNodeIds));
+    		int childSize = childNodeIds.size();
+    		unsafeBuffer.putInt(childSize);
+    		for(int id : childNodeIds){
+    			unsafeBuffer.putInt(id);
+    		}
+    	
+    		mbb.put(unsafeBuffer.getBuffer());
+    	}finally{
+    		if (raf != null) {
+    	         raf.close();
+    	    }
+    		
+    		unsafeBuffer.reset();
+    	}    	
 
-        output.flush();  
-        output.close();  
-        fout.close();
     }
     
     /**
@@ -682,27 +817,48 @@ public class BTree {
      * 可以考虑json
      */
     private void readDisk() throws IOException, ClassNotFoundException {
-    	Kryo kryo = new Kryo();  
-    	
-        File nodeFile = getNodeFileById(this.currentNodeId);
-//        long length = nodeFile.length();
-//        long l = nodeFile.length();
-        FileInputStream fin = new FileInputStream(nodeFile);
-        
-        Input input = new UnsafeInput(fin);
-        BTreeNodeFile node =null;  
-        if((node=kryo.readObject(input, BTreeNodeFile.class)) != null){  
-            this.keys = node.getKeys();
-            this.values = node.getValues();
-            this.childNodeIds = node.getChildNodeIds();
-        }
+    	File nodeFile = getNodeFileById(this.currentNodeId);
+    	RandomAccessFile raf = null;
+    	MappedByteBuffer buff = null;
+        try {
+          raf = new RandomAccessFile(nodeFile, "r");
+        	FileChannel channel = raf.getChannel();
+          	buff = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
 
-        fin.close();
+          MemoryBuffer unsafeBuffer = new MemoryBuffer((int) raf.length());
+          buff.get(unsafeBuffer.getBuffer());
+          int keySize = unsafeBuffer.getInt();
+          if(clazz == String.class){
+        	for(int i = 0; i < keySize; i++){
+        	  	keys.add(new String(unsafeBuffer.getCharArray()));
+        	  	values.add(unsafeBuffer.getLong());
+          	}
+          }
+          
+          if(clazz == Long.class){
+          	for(int i = 0; i < keySize; i++){
+          	  	keys.add(unsafeBuffer.getLong());
+          	  	values.add(unsafeBuffer.getLong());
+            	}
+            }
+          
+          int childSize = unsafeBuffer.getInt();
+          for(int i = 0; i < childSize; i++){
+        	  childNodeIds.add(unsafeBuffer.getInt());
+          }
+        } finally {
+          if (raf != null) {
+            raf.close();
+          }
+          
+          
+          
+        }
     }
     
     private void release(){
     	if(this.isRoot()){
-    		this.loadedChildren.clear();
+    		this.children.clear();
     	}
     }
 }

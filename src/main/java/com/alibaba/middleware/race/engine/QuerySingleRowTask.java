@@ -11,14 +11,22 @@ public 	class QuerySingleRowTask implements Callable{
 	private Index index;
 	private Object key;
 	private String tablePath;
-	public QuerySingleRowTask(Index index, String tablePath, Object key){
+	private boolean isCached;
+	public QuerySingleRowTask(Index index, String tablePath, Object key, boolean isCached){
 		this.index = index;
 		this.key = key;
 		this.tablePath = tablePath;
+		this.isCached = isCached;
 	}
 	@Override
 	public Row call() throws Exception {
-		ArrayList<Long> offsets = index.get(key);
+		ArrayList<Long> offsets = null;
+		if(isCached){
+			offsets = index.getWithCache(key);
+		}
+		else{
+			offsets = index.get(key);
+		}
 		File file = new File(tablePath);
 		if(offsets != null && offsets.size() == 1){
 			try {
