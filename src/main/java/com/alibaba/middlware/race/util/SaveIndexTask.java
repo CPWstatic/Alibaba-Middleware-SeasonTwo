@@ -22,7 +22,7 @@ public class SaveIndexTask implements Callable{
 	@Override
 	public Object call() throws Exception {
 		index.saveIndex(orderIndexFile);
-		System.out.println("**save done**: " + index.getIndexName() + "file path:" + orderIndexFile.getPath());
+		System.out.println("**save done**");
 		return true;
 	}
 

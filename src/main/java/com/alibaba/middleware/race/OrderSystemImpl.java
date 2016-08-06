@@ -69,7 +69,7 @@ public class OrderSystemImpl implements OrderSystem{
 		}
 		
 		db = constructor.getDB();
-		
+
 		System.out.println("total Construct Time" + (System.currentTimeMillis() - constructTime));
 		System.out.println(orderFiles);
 		System.out.println(buyerFiles);

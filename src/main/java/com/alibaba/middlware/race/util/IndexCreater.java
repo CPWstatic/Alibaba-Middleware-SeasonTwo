@@ -103,7 +103,7 @@ public class IndexCreater{
             {
             	IndexCreater.this.doQueueMonitor();
             }
-            System.out.println("--insert done--: " + index.getIndexName() + "insert count:" + count);
+//            System.out.println("--insert done--: " + index.getIndexName() + "insert count:" + count);
             //结束，提交保存任务
             saveindex();
             
@@ -113,22 +113,31 @@ public class IndexCreater{
     
     private void saveindex(){
     	if(this.table.getPath().startsWith("/disk1")){
-    		if(disk2Exe.getQueue().size() > disk3Exe.getQueue().size()){
+    		System.out.println("disk2 queue size:" + disk2Exe.getQueue().size() + " disk3 queue size:" + disk3Exe.getQueue().size());
+    		if(disk2Exe.getActiveCount() > disk3Exe.getActiveCount() || disk2Exe.getQueue().size() > disk3Exe.getQueue().size()){
     			this.saveFutures.add(disk3Exe.submit(new SaveIndexTask(index,this.storeFolders.get(2),table)));
+//    			System.out.println("disk1 sumbmit 3");
     		}else{
     			this.saveFutures.add(disk2Exe.submit(new SaveIndexTask(index,this.storeFolders.get(1),table)));
+//    			System.out.println("disk1 sumbmit 2");
     		}
     	}else if(this.table.getPath().startsWith("/disk2")){
-    		if(disk1Exe.getQueue().size() > disk3Exe.getQueue().size()){
+    		System.out.println("disk1 queue size:" + disk1Exe.getQueue().size() + " disk3 queue size:" + disk3Exe.getQueue().size());
+    		if(disk1Exe.getActiveCount() > disk3Exe.getActiveCount() || disk1Exe.getQueue().size() > disk3Exe.getQueue().size()){
     			this.saveFutures.add(disk3Exe.submit(new SaveIndexTask(index,this.storeFolders.get(2),table)));
+//    			System.out.println("disk2 sumbmit 3");
     		}else{
     			this.saveFutures.add(disk1Exe.submit(new SaveIndexTask(index,this.storeFolders.get(0),table)));
+//    			System.out.println("disk2 sumbmit 1");
     		}
     	}else if(this.table.getPath().startsWith("/disk3")){
-    		if(disk1Exe.getQueue().size() > disk2Exe.getQueue().size()){
+    		System.out.println("disk2 queue size:" + disk2Exe.getQueue().size() + " disk2 queue size:" + disk2Exe.getQueue().size());
+    		if(disk1Exe.getActiveCount() > disk2Exe.getActiveCount() || disk1Exe.getQueue().size() > disk2Exe.getQueue().size()){
     			this.saveFutures.add(disk2Exe.submit(new SaveIndexTask(index,this.storeFolders.get(1),table)));
+//    			System.out.println("disk3 sumbmit 2");
     		}else{
     			this.saveFutures.add(disk1Exe.submit(new SaveIndexTask(index,this.storeFolders.get(0),table)));
+//    			System.out.println("disk3 sumbmit 1");
     		}
     	}
     	

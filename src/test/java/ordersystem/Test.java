@@ -18,7 +18,7 @@ import com.alibaba.middleware.race.OrderSystem.TypeException;
 
 public class Test {
 	
-	private static ExecutorService queryExecutor = Executors.newFixedThreadPool(10);
+	private static ExecutorService queryExecutor = Executors.newFixedThreadPool(4);
 	
 	private static OrderSystem orderSystem = new OrderSystemImpl();
 	
@@ -53,13 +53,13 @@ public class Test {
 		
 		//QueryOrder
 		Set<String> set = new LinkedHashSet<String>();
-		set.add("description");
-//		set.add("a_g_10209");
+		set.add("contactphone");
+		set.add("a_g_10209");
 //		set.add("a_b_11255");
 //		set.add("a_b_7337");
 //		set.add("a_o_4699");
 		
-		long orderid = 587841099;
+		long orderid = 612584687;
 		QueryOrder q1 = new QueryOrder(orderid,set);
 		
 		//QueryOrdersByBuyer
@@ -69,11 +69,11 @@ public class Test {
 		QueryOrdersByBuyer q2 = new QueryOrdersByBuyer(startTime, endTime, buyerId);
 		
 		//QueryOrdersBySaler
-		String salerid = "almm-9347-39dc741cb69d";
-		String goodid = "al-8b5a-04d58d41231c";
+		String salerid = "almm-b250-b1880d628b9a";
+		String goodid = "gd-b972-6926df8128c3";
 		Collection<String> keys = new LinkedHashSet<String>();
-//		keys.add("a_b_317703");
-//		keys.add("a_g_32587");
+		keys.add("a_o_30709");
+		keys.add("a_g_32587");
 		QueryOrdersBySaler q3 = new QueryOrdersBySaler(salerid,goodid,keys);
 		
 		//SumOrdersByGood
@@ -85,20 +85,8 @@ public class Test {
 		queryExecutor.submit(q2);
 		queryExecutor.submit(q3);
 		queryExecutor.submit(q4);
-		queryExecutor.submit(q1);
-		queryExecutor.submit(q2);
-		queryExecutor.submit(q3);
-		queryExecutor.submit(q4);
-		queryExecutor.submit(q1);
-		queryExecutor.submit(q2);
-		queryExecutor.submit(q3);
-		queryExecutor.submit(q4);
-		queryExecutor.submit(q1);
-		queryExecutor.submit(q2);
-		queryExecutor.submit(q3);
-		queryExecutor.submit(q4);
 //		Thread.sleep(10000);
-		queryExecutor.shutdown();
+//		queryExecutor.shutdown();
 	}
 	
 	static class QueryOrder implements Runnable{
@@ -111,10 +99,10 @@ public class Test {
 		}
 		@Override
 		public void run() {
-			long start = System.currentTimeMillis();
 			Result result = orderSystem.queryOrder(orderId, keys);
-			System.out.println("queryOrder use time: " + (System.currentTimeMillis() - start));
-//			System.out.println("queryOrder result: " + result.orderId() + result);
+			KeyValue[] keyv = result.getAll();
+			System.out.println("queryOrder: " + result.orderId());
+			System.out.println(Arrays.toString(keyv));
 		}	
 		
 	}
@@ -136,20 +124,19 @@ public class Test {
 		
 		@Override
 		public void run() {
-
+			System.out.println("queryOrderByBuyer");
 			Iterator<Result> itr = orderSystem.queryOrdersByBuyer(startTime, endTime, buyerid);
 			
-//			System.out.println("queryOrderByBuyer result:");
-//			while(itr.hasNext()){
-//				Result result = itr.next();
-//				long orderId = result.orderId();
-//				KeyValue[] kv = result.getAll();
-//				System.out.print(orderId + " ");
-//				for(KeyValue keyvalue:kv){
-//					System.out.print(keyvalue);
-//				}
-//				System.out.println();
-//			}
+			while(itr.hasNext()){
+				Result result = itr.next();
+				long orderId = result.orderId();
+				KeyValue[] kv = result.getAll();
+				System.out.print(orderId + " ");
+				for(KeyValue keyvalue:kv){
+					System.out.print(keyvalue);
+				}
+				System.out.println();
+			}
 		}
 		
 	}
@@ -168,22 +155,20 @@ public class Test {
 		
 		@Override
 		public void run() {
-
+			System.out.println("queryOrderBySaler");
 			long start = System.currentTimeMillis();
 			Iterator<Result> itr = orderSystem.queryOrdersBySaler(salerid, goodid, keys);
-			System.out.println("queryOrderBySaler use time: " + (System.currentTimeMillis() - start));
-			
-//			System.out.println("queryOrderBySaler result");
-//			while(itr.hasNext()){
-//				Result result = itr.next();
-//				long orderId = result.orderId();
-//				KeyValue[] kv = result.getAll();
-//				System.out.print(orderId + " ");
-//				for(KeyValue keyvalue:kv){
-//					System.out.print(keyvalue);
-//				}
-//				System.out.println();
-//			}
+			System.out.println(System.currentTimeMillis() - start);
+			while(itr.hasNext()){
+				Result result = itr.next();
+				long orderId = result.orderId();
+				KeyValue[] kv = result.getAll();
+				System.out.print(orderId + " ");
+				for(KeyValue keyvalue:kv){
+					System.out.print(keyvalue);
+				}
+				System.out.println();
+			}
 		}
 	}
 	
@@ -198,9 +183,8 @@ public class Test {
 		}
 		@Override
 		public void run() {
-			KeyValue kv = orderSystem.sumOrdersByGood(goodid, key);
-//			System.out.println("QuerySumOrderByGood result:" + kv);
-//			System.out.println();
+			System.out.println("QuerySumOrderByGood" + orderSystem.sumOrdersByGood(goodid, key));
+			System.out.println();
 		}
 		
 	}

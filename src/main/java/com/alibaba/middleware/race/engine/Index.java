@@ -7,7 +7,6 @@ import java.util.Comparator;
 
 import com.alibaba.middlware.race.util.BTree;
 import com.alibaba.middlware.race.util.MemoryBuffer;
-import com.esotericsoftware.kryo.Kryo;
 
 
 /**
@@ -141,7 +140,7 @@ public class Index {
 	
 	public void saveIndex(File indexDirectory){
 		try {
-			MemoryBuffer unsafeBuffer = new MemoryBuffer(1024 * 128);
+			MemoryBuffer unsafeBuffer = new MemoryBuffer(1024 * 512);
 			this.index.saveAll(indexDirectory,unsafeBuffer);
 		} catch (ClassNotFoundException e) {
 			// TODO Auto-generated catch block

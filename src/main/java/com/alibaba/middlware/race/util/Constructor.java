@@ -13,6 +13,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import com.alibaba.middleware.race.engine.Database;
 import com.alibaba.middleware.race.engine.Index;
@@ -25,14 +26,14 @@ public class Constructor {
 	private static ConcurrentHashMap<String, Integer> goodKeys = new ConcurrentHashMap<String, Integer>();
 	private static Database database = Database.getInstance("orderSystem");
 	
-    private final ThreadPoolExecutor disk1Exe = (ThreadPoolExecutor) Executors.newFixedThreadPool(2);
-    private final ThreadPoolExecutor disk2Exe = (ThreadPoolExecutor) Executors.newFixedThreadPool(2);
-    private final ThreadPoolExecutor disk3Exe = (ThreadPoolExecutor) Executors.newFixedThreadPool(2);
+    private final ThreadPoolExecutor disk1Exe = (ThreadPoolExecutor) Executors.newFixedThreadPool(1);
+    private final ThreadPoolExecutor disk2Exe = (ThreadPoolExecutor) Executors.newFixedThreadPool(1);
+    private final ThreadPoolExecutor disk3Exe = (ThreadPoolExecutor) Executors.newFixedThreadPool(1);
     private ArrayList<Future<Object>> saveFutures = new ArrayList<Future<Object>>();
     private ArrayList<String> storeFolders;
     
-	private static final int orderDivideSize = 2000000;
-	private static final int buyerOrGoodDivideSize = 2000000;
+	private static final int orderDivideSize = 10000000;
+	private static final int buyerOrGoodDivideSize = 10000000;
 	
 	public void prepare(Collection<String> orderFiles, Collection<String> buyerFiles, Collection<String> goodFiles,
 			Collection<String> storeFolders) throws IOException, InterruptedException, ExecutionException {
@@ -84,6 +85,7 @@ public class Constructor {
 		for (String file : disk3Files) {
 			operate(file);
 		}
+		System.out.println("disk1 complete" + disk1Exe.getCompletedTaskCount() + " disk2 complete" + disk2Exe.getCompletedTaskCount()+ " disk3 complete" +disk3Exe.getCompletedTaskCount());
 	}
 	
 	private void operate(String tablePath) {
@@ -138,33 +140,33 @@ public class Constructor {
 				for (int i = 0; i < 3; i++) {
 					indexCreaters[i].put(new Object[]{index_values[i], lastNumberSize});
 				}
-//				//超量处理
-//				if ((line_num != 0) && (line_num ^ orderDivideSize) == 0) {
-////					orderIndexSave(indexes, indexRootPath, table);
-//					for(IndexCreater indexc : indexCreaters){
-//						indexc.shutdown();
-//					}
-//					//等待index建立完成
-//					for(Future<Long> future : futures){
-//						try {
-//							future.get();
-//						} catch (ExecutionException e) {
-//							// TODO Auto-generated catch block
-//							e.printStackTrace();
-//						}
-//					}
-//					
-//					line_num = 0;
-//					index_num++;
-//					indexes = createMultiIndex(table.getTableName(), indexNames, null,index_num);
-//					futures = new ArrayList<Future<Long>>(3);
-//					indexCreaters = new IndexCreater[]{new IndexCreater(indexes[0],disk1Exe,disk2Exe,disk3Exe,table,saveFutures,storeFolders)
-//																		,new IndexCreater(indexes[1],disk1Exe,disk2Exe,disk3Exe,table,saveFutures,storeFolders)
-//																		,new IndexCreater(indexes[2],disk1Exe,disk2Exe,disk3Exe,table,saveFutures,storeFolders)};
-//					for(IndexCreater indexc :indexCreaters){
-//						futures.add(indexc.startup());
-//					}
-//				}
+				//超量处理
+				if ((line_num != 0) && (line_num ^ orderDivideSize) == 0) {
+//					orderIndexSave(indexes, indexRootPath, table);
+					for(IndexCreater indexc : indexCreaters){
+						indexc.shutdown();
+					}
+					//等待index建立完成
+					for(Future<Long> future : futures){
+						try {
+							future.get();
+						} catch (ExecutionException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					}
+					
+					line_num = 0;
+					index_num++;
+					indexes = createMultiIndex(table.getTableName(), indexNames, null,index_num);
+					futures = new ArrayList<Future<Long>>(3);
+					indexCreaters = new IndexCreater[]{new IndexCreater(indexes[0],disk1Exe,disk2Exe,disk3Exe,table,saveFutures,storeFolders)
+																		,new IndexCreater(indexes[1],disk1Exe,disk2Exe,disk3Exe,table,saveFutures,storeFolders)
+																		,new IndexCreater(indexes[2],disk1Exe,disk2Exe,disk3Exe,table,saveFutures,storeFolders)};
+					for(IndexCreater indexc :indexCreaters){
+						futures.add(indexc.startup());
+					}
+				}
 				lastNumberSize += (sentence.getBytes().length + 1);
 				line_num++;
 			}
@@ -247,21 +249,21 @@ public class Constructor {
 				String sentence = line.nextLine();
 				index_value = buyerOrGoodSplitSentence(sentence, indexName, buyerOrGoodKey,flag);
 				indexc.put(new Object[]{index_value, lastNumberSize});
-//				if ((line_num != 0) && (line_num ^ buyerOrGoodDivideSize) == 0) {
-//					indexc.shutdown();
-//					try {
-//						future.get();
-//					} catch (Exception e) {
-//						// TODO Auto-generated catch block
-//						e.printStackTrace();
-//					} 
-//					
-//					line_num = 0;
-//					index_num++;
-//					buyerOrGoodIndex = createSingleIndex(table.getTableName(), indexName, null,index_num);
-//					indexc = new IndexCreater(buyerOrGoodIndex,disk1Exe,disk2Exe,disk3Exe,table,saveFutures,storeFolders);
-//					future = indexc.startup();
-//				}
+				if ((line_num != 0) && (line_num ^ buyerOrGoodDivideSize) == 0) {
+					indexc.shutdown();
+					try {
+						future.get();
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					} 
+					
+					line_num = 0;
+					index_num++;
+					buyerOrGoodIndex = createSingleIndex(table.getTableName(), indexName, null,index_num);
+					indexc = new IndexCreater(buyerOrGoodIndex,disk1Exe,disk2Exe,disk3Exe,table,saveFutures,storeFolders);
+					future = indexc.startup();
+				}
 				lastNumberSize += (sentence.getBytes().length + 1);
 				line_num++;
 			}
@@ -358,6 +360,9 @@ public class Constructor {
 			}
 		}
 		
+		disk1Exe.shutdown();
+		disk2Exe.shutdown();
+		disk3Exe.shutdown();
 		return database;
 	}
 

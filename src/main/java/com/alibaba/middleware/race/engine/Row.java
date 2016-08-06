@@ -45,9 +45,4 @@ public class Row {
 		return this.row.values();
 	}
 
-	@Override
-	public String toString() {
-		return "Row [row=" + row + "]";
-	}
-
 }
