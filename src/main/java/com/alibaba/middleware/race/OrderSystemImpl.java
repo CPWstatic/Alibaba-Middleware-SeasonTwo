@@ -28,8 +28,8 @@ import com.alibaba.middleware.race.engine.QuerySingleRowTask;
 import com.alibaba.middleware.race.engine.Row;
 import com.alibaba.middleware.race.engine.Table;
 import com.alibaba.middleware.race.engine.WhereStrategy;
-import com.alibaba.middlware.race.util.Constructor;
-import com.alibaba.middlware.race.util.CustomExecutorCompletionService;
+import com.alibaba.middleware.race.util.Constructor;
+import com.alibaba.middleware.race.util.CustomExecutorCompletionService;
 import com.googlecode.concurrentlinkedhashmap.ConcurrentLinkedHashMap;
 import com.googlecode.concurrentlinkedhashmap.Weighers;
 

@@ -4,7 +4,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.concurrent.Callable;
 
-import com.alibaba.middlware.race.util.FileReader;
+import com.alibaba.middleware.race.util.FileReader;
 
 /**
  * 

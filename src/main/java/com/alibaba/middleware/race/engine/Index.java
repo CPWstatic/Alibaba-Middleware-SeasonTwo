@@ -5,8 +5,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 
-import com.alibaba.middlware.race.util.BTree;
-import com.alibaba.middlware.race.util.MemoryBuffer;
+import com.alibaba.middleware.race.util.BTree;
+import com.alibaba.middleware.race.util.MemoryBuffer;
 
 
 /**

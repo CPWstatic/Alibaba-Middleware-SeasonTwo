@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.concurrent.Callable;
 
-import com.alibaba.middlware.race.util.FileReader;
+import com.alibaba.middleware.race.util.FileReader;
 
 public 	class QuerySingleRowTask implements Callable{
 	private Index index;
